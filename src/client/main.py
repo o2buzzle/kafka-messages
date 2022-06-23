@@ -48,7 +48,7 @@ async def session_info(url):
 
 
 def main():
-    topics_list = requests.get("http://{SERVER}/messages/topics").json()
+    topics_list = requests.get(f"http://{SERVER}/messages/topics").json()
     print("Available topics:")
     for topic in topics_list:
         print(f"\t{topic}")

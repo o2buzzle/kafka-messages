@@ -1,17 +1,16 @@
+from imp import C_EXTENSION
 from math import prod
 from typing import List
 import fastapi
 import aiokafka, kafka
 import json
-import starlette
-import starlette.websockets
-
 import configparser
+
 
 config = configparser.ConfigParser()
 config.read("config.ini")
 
-kafka_bootstrap_server = config["Kafka"]["KAFKA_HOST"]
+kafka_bootstrap_server = "localhost:9092"
 
 router = fastapi.APIRouter()
 
@@ -32,10 +31,14 @@ async def query_incomming_messages(websocket: fastapi.WebSocket, topic: str):
     await consumer.start()
 
     while True:
-        msg = await consumer.getone()
-        print(msg)
-        if msg is not None:
-            await websocket.send_json(msg.value)
+        try:
+            msg = await consumer.getone()
+            # print(msg)
+            if msg is not None:
+                await websocket.send_json(msg.value)
+        except Exception:
+            await consumer.stop()
+            break
 
 
 @router.websocket("/outgoing/{topic}")
@@ -54,11 +57,12 @@ async def send_message(websocket: fastapi.WebSocket, topic: str):
     while True:
         try:
             message = await websocket.receive_json()
-            print(message)
+            # print(message)
             await producer.send(topic, message)
             await websocket.send_json({"status": "ok"})
-        except starlette.websockets.WebSocketDisconnect:
+        except fastapi.WebSocketDisconnect:
             await producer.stop()
+            break
 
 
 @router.websocket("/broadcast/{topic}")
@@ -81,11 +85,12 @@ async def broadcast_message(websocket: fastapi.WebSocket, topic: str):
     while True:
         try:
             await websocket.receive_json()
-        except starlette.websockets.WebSocketDisconnect:
+        except fastapi.WebSocketDisconnect:
             await producer.send(
                 topic, {"sender": session_user, "message": "disconnected"}
             )
             await producer.stop()
+            break
 
 
 @router.post("/create_topic")
@@ -93,7 +98,7 @@ async def create_topic(topic: str):
     consumer = aiokafka.AIOKafkaConsumer(bootstrap_servers=[kafka_bootstrap_server])
     await consumer.start()
     topics = await consumer.topics()
-    print(topics)
+    # print(topics)
     if topic in topics:
         await consumer.stop()
         return {"status": "topic already exists"}
