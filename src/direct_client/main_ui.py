@@ -71,6 +71,17 @@ class GUI(Ui_MainWindow, QtWidgets.QMainWindow):
             if not ok:
                 self.username = "Anonymous"
 
+        self.kafka_server, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "Change Server",
+            "Enter server address (host:port). Cancel to use localhost:",
+        )
+        if not ok:
+            self.kafka_server = "127.0.0.1:9092"
+        else:
+            if ":" not in self.kafka_server:
+                self.kafka_server += ":9092"
+
         temp_consumer = kafka.KafkaConsumer(
             bootstrap_servers=[self.kafka_server],
             value_deserializer=lambda x: json.loads(x.decode("utf-8")),
